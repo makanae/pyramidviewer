@@ -1,36 +1,32 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>月山道路 Information Pyramid Web3D</title>
-<style>html,body{margin:0;height:100%;overflow:hidden;font-family:sans-serif}#c{width:100%;height:100%;display:block}
-#ui{position:absolute;top:12px;left:12px;background:#ffffffdd;padding:10px 12px;border-radius:8px;max-width:360px;font-size:13px}
-#tip{position:absolute;display:none;background:#111d;color:white;padding:8px;border-radius:6px;pointer-events:none;max-width:320px;font-size:12px}
-label{display:block;margin:5px 0}</style></head><body><canvas id="c"></canvas>
-<div id="ui"><b>月山道路 Information Pyramid — 実時間3D</b>
-<div>ドラッグ：回転　ホイール：拡大縮小　右ドラッグ：移動　ノード：クリック</div>
-<label><input id="labels" type="checkbox" checked> ラベル表示</label>
-<label><input id="grid" type="checkbox" checked> 年軸・レベル面表示</label>
-<div>◇ Acquisition　□ Rebuild　△ Future</div></div><div id="tip"></div>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.164/examples/jsm/"}}</script>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Information Pyramid Multi-case Viewer</title><style>
+html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,sans-serif;background:#eef2f6}canvas{display:block}
+#p{position:absolute;z-index:2;left:10px;top:10px;width:min(360px,calc(100vw - 20px));max-height:calc(100vh - 20px);overflow:auto;background:#fffffff0;padding:11px;border-radius:12px;box-shadow:0 4px 18px #0003;font-size:12px}
+h1{font-size:15px;margin:0 0 7px}button,select{padding:6px;margin:2px;border:1px solid #aaa;border-radius:7px;background:white}input[type=range]{width:100%}.r{margin:7px 0}#d{white-space:pre-wrap;background:#f3f5f7;padding:7px;border-radius:7px;min-height:35px}.s{font-size:10.5px;color:#555}
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script></head>
+<body><div id="p"><h1>Information Pyramid 3D</h1><div class="r"><select id="ds"><option value="sendai">仙台湾南部海岸</option><option value="abukuma">阿武隈川・名取川</option><option value="sanriku">三陸沿岸道路</option><option value="isawa">胆沢ダム</option><option value="gassan">月山道路</option></select><button id="home">全体表示</button></div>
+<div class="r"><button id="lab">ラベル</button><button id="lin">リンク</button><button id="un">未確定ノード</button></div>
+<div class="r">レイヤー透明度 <span id="ov">0.20</span><input id="op" type="range" min="0" max=".55" step=".01" value=".20"></div><div id="layers"></div>
+<div class="s" id="status">仙台湾南部海岸を表示中</div>
+<div class="s">赤ノード＝下位リンク未確定。タップで詳細表示。</div><div class="r"><b>選択ノード</b><div id="d">ノードをタップしてください。</div></div></div>
 <script type="module">
-import * as THREE from 'three'; import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-const D=await fetch('./data.json').then(r=>r.json()), c=document.getElementById('c');
-const r=new THREE.WebGLRenderer({canvas:c,antialias:true});r.setPixelRatio(devicePixelRatio);
-const s=new THREE.Scene();s.background=new THREE.Color(0xf7f8fa);const cam=new THREE.PerspectiveCamera(48,1,.1,1000);cam.position.set(28,-34,22);
-const ctl=new OrbitControls(cam,c);ctl.enableDamping=true;ctl.target.set(12,0,3);
-s.add(new THREE.AmbientLight(0xffffff,2.2));const dl=new THREE.DirectionalLight(0xffffff,2);dl.position.set(10,-10,20);s.add(dl);
-const x=yr=>(yr-D.year_min)/(D.year_max-D.year_min)*24;
-const mats={info:new THREE.MeshStandardMaterial({color:0x3d6ea8}),survey:new THREE.MeshStandardMaterial({color:0x3a9d7d}),
-rebuild:new THREE.MeshStandardMaterial({color:0xd67a2f}),future:new THREE.MeshStandardMaterial({color:0x8055a5})};
-const objs=new Map(), clickable=[];
-for(const n of D.nodes){let g=n.kind==='survey'?new THREE.OctahedronGeometry(.11):n.kind==='rebuild'?new THREE.BoxGeometry(.18,.18,.18):n.kind==='future'?new THREE.ConeGeometry(.13,.25,8):new THREE.SphereGeometry(.095,10,8);
- let m=new THREE.Mesh(g,mats[n.kind]||mats.info);m.position.set(x(n.year),n.y,n.z);m.userData=n;s.add(m);objs.set(n.id,m);clickable.push(m);}
-function line(a,b,kind){const g=new THREE.BufferGeometry().setFromPoints([a.position,b.position]);const mat=new THREE.LineBasicMaterial({color:kind==='future'?0x8055a5:0x777777,transparent:true,opacity:.55});s.add(new THREE.Line(g,mat));}
-for(const l of D.links){if(objs.has(l.a)&&objs.has(l.b))line(objs.get(l.a),objs.get(l.b),l.kind);}
-const gridGroup=new THREE.Group();s.add(gridGroup);
-for(const yr of [1894,1904,1932,1935,1959,1971,1981,2000,2010,2024,2026]){const xx=x(yr);const pts=[new THREE.Vector3(xx,-14,0),new THREE.Vector3(xx,14,0)];gridGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xcccccc})));
- const sp=document.createElement('canvas');sp.width=256;sp.height=64;const q=sp.getContext('2d');q.font='28px sans-serif';q.fillText(String(yr),4,35);const tex=new THREE.CanvasTexture(sp);const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex}));spr.position.set(xx,-14.5,.15);spr.scale.set(2,.5,1);gridGroup.add(spr);}
-const labelGroup=new THREE.Group();s.add(labelGroup);
-for(const n of D.nodes){if(n.z<2.5&&n.kind==='info')continue;const cv=document.createElement('canvas');cv.width=600;cv.height=70;const q=cv.getContext('2d');q.font='24px sans-serif';q.fillStyle='#111';q.fillText(n.label,5,35);const t=new THREE.CanvasTexture(cv);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true}));sp.position.set(x(n.year),n.y,n.z+.28);sp.scale.set(4.2,.49,1);labelGroup.add(sp);}
-document.getElementById('labels').onchange=e=>labelGroup.visible=e.target.checked;document.getElementById('grid').onchange=e=>gridGroup.visible=e.target.checked;
-const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(),tip=document.getElementById('tip');
-c.addEventListener('click',e=>{const b=c.getBoundingClientRect();mouse.x=(e.clientX-b.left)/b.width*2-1;mouse.y=-(e.clientY-b.top)/b.height*2+1;ray.setFromCamera(mouse,cam);const h=ray.intersectObjects(clickable)[0];if(!h){tip.style.display='none';return}const n=h.object.userData;tip.innerHTML='<b>'+n.label+'</b><br>年: '+n.year+'<br>種別: '+n.kind+'<br>確認: '+(n.status||'');tip.style.left=e.clientX+12+'px';tip.style.top=e.clientY+12+'px';tip.style.display='block';});
-function resize(){const w=innerWidth,h=innerHeight;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener('resize',resize);resize();
-(function loop(){requestAnimationFrame(loop);ctl.update();r.render(s,cam)})();</script></body></html>
+import * as THREE from 'three';import{OrbitControls}from'three/addons/controls/OrbitControls.js';
+const DATA=await fetch('datasets.json').then(r=>r.json()),scene=new THREE.Scene();scene.background=new THREE.Color(0xeef2f6);
+const cam=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,1200);const ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+const ctl=new OrbitControls(cam,ren.domElement);ctl.enableDamping=true;scene.add(new THREE.HemisphereLight(0xffffff,0x667788,2.2));let dl=new THREE.DirectionalLight(0xffffff,1.8);dl.position.set(20,-20,60);scene.add(dl);
+let root,pick,sprites,layers,labelsOn=true,linksOn=true,unOn=true,opacity=.20;
+const Z={L1:24,L2:20,L3:16,"L4.1":12,"L4.2":8,"L4.3":4.2,L5:.8},C={L1:0x274c77,L2:0x4472c4,L3:0x5b9bd5,"L4.1":0x9dc3e6,"L4.2":0xd9e2f3,"L4.3":0xc6e0b4,L5:0x70ad47,Event:0xc0504d};
+function lbl(t,p,sc=.7){let cv=document.createElement('canvas'),x=cv.getContext('2d');x.font='40px sans-serif';cv.width=Math.max(120,x.measureText(t).width+25);cv.height=55;x.font='40px sans-serif';x.fillStyle='#ffffffdd';x.fillRect(0,0,cv.width,cv.height);x.fillStyle='#172033';x.fillText(t,10,41);let s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));s.position.set(...p);s.scale.set(sc*cv.width/cv.height,sc,1);root.add(s);sprites.push(s);return s}
+function build(k){if(root)scene.remove(root);root=new THREE.Group();scene.add(root);pick=[];sprites=[];layers={};document.getElementById('layers').innerHTML='';let d=DATA[k],xs=d.nodes.map(n=>n.position[0]),ys=d.nodes.map(n=>Math.abs(n.position[1])),mn=Math.min(...xs),mx=Math.max(...xs),my=Math.max(20,...ys);
+ for(let [lv,z] of Object.entries(Z)){let q=new THREE.Mesh(new THREE.PlaneGeometry(mx-mn+18,my*2+8),new THREE.MeshBasicMaterial({color:C[lv],transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));q.position.set((mx+mn)/2,0,z);q.renderOrder=-10;root.add(q);layers[lv]=q;let id='c'+lv.replace('.','');document.getElementById('layers').insertAdjacentHTML('beforeend',`<label><input id="${id}" type="checkbox" checked>${lv}</label> `);document.getElementById(id).onchange=e=>q.visible=e.target.checked}
+ for(let n of d.nodes){let lv=n.level;if(!C[lv])continue;let unresolved=(n.association_status||'').includes('REVIEW')||(n.association_status||'').includes('UNRESOLVED');let r=lv==='L1'?.62:lv==='L2'?.58:lv==='L3'?.52:lv==='L4.1'?.4:lv==='L4.2'?.24:lv==='L4.3'?.14:.13;let m=new THREE.Mesh(new THREE.SphereGeometry(r,10,7),new THREE.MeshStandardMaterial({color:unresolved?0xc0504d:C[lv]}));m.position.fromArray(n.position);m.userData={...n,unresolved};root.add(m);pick.push(m);if(['L1','L2','L3','L4.1','L4.2'].includes(lv)){let s=lbl(n.label||n.record_id||n.name,[...n.position.slice(0,2),n.position[2]+.45],lv==='L4.2'?.5:.8);s.userData.level=lv}}
+ for(let l of d.links){let ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...l.from),new THREE.Vector3(...l.to)]),new THREE.LineBasicMaterial({color:l.kind==='feedback'?0xc0504d:0x44546a,transparent:true,opacity:.72}));ln.userData.link=true;root.add(ln)}
+ ctl.target.set((mx+mn)/2,0,10);cam.position.set(mx*.75+35,-Math.max(65,my*2),48);ctl.update()}
+build('sendai');document.getElementById('ds').onchange=e=>{
+ build(e.target.value);
+ const names={sendai:'仙台湾南部海岸',abukuma:'阿武隈川・名取川',sanriku:'三陸沿岸道路',isawa:'胆沢ダム',gassan:'月山道路'};
+ document.getElementById('status').textContent=names[e.target.value]+'を表示中';
+};document.getElementById('op').oninput=e=>{opacity=+e.target.value;document.getElementById('ov').textContent=opacity.toFixed(2);Object.values(layers).forEach(x=>x.material.opacity=opacity)};document.getElementById('lab').onclick=()=>{labelsOn=!labelsOn;sprites.forEach(x=>x.visible=labelsOn)};document.getElementById('lin').onclick=()=>{linksOn=!linksOn;root.children.filter(x=>x.userData.link).forEach(x=>x.visible=linksOn)};document.getElementById('un').onclick=()=>{unOn=!unOn;pick.filter(x=>x.userData.unresolved).forEach(x=>x.visible=unOn)};document.getElementById('home').onclick=()=>build(document.getElementById('ds').value);
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();ren.domElement.addEventListener('pointerdown',e=>{let r=ren.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,cam);let h=ray.intersectObjects(pick.filter(x=>x.visible))[0];if(!h)return;let a=h.object.userData,o=[a.label||a.contract_name||a.work_type||a.name,`階層: ${a.level}`];for(let [k,l]of[['river','河川'],['area','地区'],['record_id','契約ID'],['contract_name','工事名'],['work_type','工種'],['start','着工'],['finish','竣工'],['association_status','監査状態']])if(a[k])o.push(`${l}: ${a[k]}`);d.textContent=o.join('\n')});
+function go(){requestAnimationFrame(go);ctl.update();let dist=cam.position.distanceTo(ctl.target);sprites.forEach(s=>s.visible=labelsOn&&(s.userData.level!=='L4.2'||dist<85));ren.render(scene,cam)}go();addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+</script></body></html>
